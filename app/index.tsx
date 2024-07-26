@@ -4,12 +4,22 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Text, View, TextInput } from 'react-native';
 
+import { supabase } from '~/utils/supabase';
+
 export default function Home() {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
 
-  const onTranslate = () => {
-    const translation = input;
+  const translate = async (text: string) => {
+    const { data } = await supabase.functions.invoke('translate', {
+      body: JSON.stringify({ input: text, from: 'English', to: 'Spanish' }),
+    });
+
+    return data?.content || 'Something went wrong!';
+  };
+
+  const onTranslate = async () => {
+    const translation = await translate(input);
     setOutput(translation);
   };
 
