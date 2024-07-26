@@ -4,9 +4,9 @@ import { Platform } from 'react-native';
 
 import { supabase } from './supabase';
 
-export const translate = async (text: string) => {
+export const translate = async (input: string, from: string, to: string) => {
   const { data } = await supabase.functions.invoke('translate', {
-    body: JSON.stringify({ input: text, from: 'English', to: 'Spanish' }),
+    body: JSON.stringify({ input, from, to }),
   });
 
   return data?.content || 'Something went wrong!';
