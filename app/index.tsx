@@ -1,91 +1,27 @@
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Text, View, TextInput } from 'react-native';
 
-import { supabase } from '~/utils/supabase';
+import AudioRecording from '~/components/AudioRecording';
+import { translate, textToSpeech, audioToText } from '~/utils/translation';
 
 export default function Home() {
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
-
-  const [recording, setRecording] = useState<Audio.Recording>();
-  const [permissionResponse, requestPermission] = Audio.usePermissions();
-
-  const translate = async (text: string) => {
-    const { data } = await supabase.functions.invoke('translate', {
-      body: JSON.stringify({ input: text, from: 'English', to: 'Spanish' }),
-    });
-
-    return data?.content || 'Something went wrong!';
-  };
 
   const onTranslate = async () => {
     const translation = await translate(input);
     setOutput(translation);
   };
 
-  const textToSpeech = async (text: string) => {
-    const { data } = await supabase.functions.invoke('text-to-speech', {
-      body: JSON.stringify({ input: text }),
-    });
-
-    if (data) {
-      const { sound } = await Audio.Sound.createAsync({
-        uri: `data:audio/mp3;base64,${data.mp3Base64}`,
-      });
-      sound.playAsync();
-    }
+  const speechToText = async (uri: string) => {
+    const text = await audioToText(uri);
+    setInput(text);
+    const translation = await translate(text);
+    setOutput(translation);
   };
-
-  async function startRecording() {
-    try {
-      if (permissionResponse?.status !== 'granted') {
-        console.log('Requesting permission..');
-        await requestPermission();
-      }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      console.log('Starting recording..');
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(recording);
-      console.log('Recording started');
-    } catch (err) {
-      console.error('Failed to start recording', err);
-    }
-  }
-
-  async function stopRecording() {
-    if (!recording) {
-      return;
-    }
-    console.log('Stopping recording..');
-    setRecording(undefined);
-    await recording.stopAndUnloadAsync();
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-    });
-    const uri = recording.getURI();
-    console.log('Recording stopped and stored at', uri);
-
-    if (uri) {
-      const audioBase64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: JSON.stringify({ audioBase64 }),
-      });
-      setInput(data.text);
-      const translation = await translate(data.text);
-      setOutput(translation);
-    }
-  }
 
   return (
     <>
@@ -119,11 +55,7 @@ export default function Home() {
           />
         </View>
         <View className="flex-row justify-between">
-          {recording ? (
-            <FontAwesome5 onPress={stopRecording} name="stop-circle" size={24} color="royalblue" />
-          ) : (
-            <FontAwesome6 onPress={startRecording} name="microphone" size={18} color="dimgray" />
-          )}
+          <AudioRecording onNewRecording={(uri) => speechToText(uri)} />
 
           <Text className="color-gray-500">{input.length} / 5000</Text>
         </View>
