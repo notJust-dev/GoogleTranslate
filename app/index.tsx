@@ -1,5 +1,6 @@
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
+import { Audio } from 'expo-av';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
 import { Text, View, TextInput } from 'react-native';
@@ -21,6 +22,19 @@ export default function Home() {
   const onTranslate = async () => {
     const translation = await translate(input);
     setOutput(translation);
+  };
+
+  const textToSpeech = async (text: string) => {
+    const { data } = await supabase.functions.invoke('text-to-speech', {
+      body: JSON.stringify({ input: text }),
+    });
+
+    if (data) {
+      const { sound } = await Audio.Sound.createAsync({
+        uri: `data:audio/mp3;base64,${data.mp3Base64}`,
+      });
+      sound.playAsync();
+    }
   };
 
   return (
@@ -65,7 +79,12 @@ export default function Home() {
         <View className="gap-5 bg-gray-200 p-5">
           <Text className="min-h-32 text-xl">{output}</Text>
           <View className="flex-row justify-between">
-            <FontAwesome6 name="volume-high" size={18} color="dimgray" />
+            <FontAwesome6
+              onPress={() => textToSpeech(output)}
+              name="volume-high"
+              size={18}
+              color="dimgray"
+            />
             <FontAwesome5 name="copy" size={18} color="dimgray" />
           </View>
         </View>
